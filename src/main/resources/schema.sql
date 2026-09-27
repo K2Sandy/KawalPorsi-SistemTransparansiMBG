@@ -5,3 +5,6 @@ create table if not exists food(id varchar(50) primary key,name varchar(120) uni
 alter table food add column if not exists shelf_days int;
 alter table food add column if not exists expiry date;
 create table if not exists rules(id int primary key,tolerance decimal(5,2),strategy varchar(10),secondary boolean,low_flag boolean,notify boolean);
+create table if not exists purchase(id varchar(50) primary key,kitchen varchar(50) references kitchen(id),day_date date not null,menu varchar(240) not null,portions int not null,total bigint not null,isb bigint not null,tolerance decimal(5,2) not null,strategy varchar(40) not null,state varchar(20) not null,reason varchar(2000) not null,unique(kitchen,day_date));
+create table if not exists item(purchase varchar(50) references purchase(id),seq int,food varchar(50) references food(id),label varchar(120),qty decimal(14,3),amount bigint,reference_price bigint,primary key(purchase,seq));
+create table if not exists evidence(id uuid default random_uuid() primary key,purchase varchar(50) references purchase(id),name varchar(140),mime varchar(80),contents blob);
