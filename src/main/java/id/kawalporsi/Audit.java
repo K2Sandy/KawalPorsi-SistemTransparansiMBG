@@ -47,4 +47,36 @@ public final class Audit {
       return messages;
     }
   }
+
+  interface ObserverAudit {
+    void flagged(Connection c, String id, String reason, boolean notify) throws SQLException;
+  }
+
+  static void log(Connection c, String id, String actor, String action, String note)
+      throws SQLException {
+    update(
+        c,
+        "insert into event(purchase,actor,action,note) values(?,?,?,?)",
+        id,
+        actor,
+        action,
+        note);
+  }
+
+  static final class AuditLogger implements ObserverAudit {
+    public void flagged(Connection c, String id, String reason, boolean notify)
+        throws SQLException {
+      log(c, id, "AuditLogger", "Klaim dibekukan", reason);
+    }
+  }
+
+  static final class FraudAlertSystem implements ObserverAudit {
+    public void flagged(Connection c, String id, String reason, boolean notify)
+        throws SQLException {
+      if (notify)
+        update(c, "insert into alert(purchase,message) values(?,?)", id, "Transaksi baru ditandai");
+    }
+  }
+
+  private final List<ObserverAudit> observers = List.of(new AuditLogger(), new FraudAlertSystem());
 }
