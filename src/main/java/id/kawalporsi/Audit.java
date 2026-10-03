@@ -36,4 +36,15 @@ public final class Audit {
       return flag ? List.of("Biaya per porsi melewati ambang ISB daerah.") : List.of();
     }
   }
+
+  static class DeviasiHargaStrategy implements AuditStrategy {
+    public List<String> evaluate(TransaksiPengadaan c) {
+      var messages = new ArrayList<String>();
+      for (Line l : c.lines())
+        if (exceeds(
+            BigDecimal.valueOf(l.amount()), l.qty().multiply(BigDecimal.valueOf(l.reference())), c))
+          messages.add(l.food() + " melewati ambang harga acuan per kg.");
+      return messages;
+    }
+  }
 }
