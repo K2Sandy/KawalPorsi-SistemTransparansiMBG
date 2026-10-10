@@ -130,4 +130,99 @@ final class Web {
   static String statusPublic(String state) {
     return open(state) ? "PENDING" : state;
   }
+
+  static class Params {
+    final Map<String, List<String>> values = new LinkedHashMap<>();
+    final List<Audit.Receipt> files = new ArrayList<>();
+
+    void add(String k, String v) {
+      values.computeIfAbsent(k, key -> new ArrayList<>()).add(v);
+    }
+
+    String get(String k) {
+      return values.getOrDefault(k, List.of("")).getFirst().strip();
+    }
+
+    String required(String k, int max) {
+      String v = get(k);
+      if (v.isBlank() || v.length() > max)
+        throw new IllegalArgumentException(
+            "Lengkapi kolom " + k + " (maks. " + max + " karakter).");
+      return v;
+    }
+
+    long positive(String key, long max) {
+      try {
+        long x = Long.parseLong(get(key));
+        if (x > 0 && x <= max) return x;
+      } catch (NumberFormatException ignored) {
+      }
+      throw new IllegalArgumentException("Nilai " + key + " tidak valid.");
+    }
+
+    boolean on(String k) {
+      return values.containsKey(k);
+    }
+
+    static Params query(String query) {
+      Params p = new Params();
+      if (query != null)
+        for (String item : query.split("&")) {
+          String[] kv = item.split("=", 2);
+          if (kv.length == 2)
+            p.add(
+                URLDecoder.decode(kv[0], StandardCharsets.UTF_8),
+                URLDecoder.decode(kv[1], StandardCharsets.UTF_8));
+        }
+      return p;
+    }
+
+    static Params form(String type, InputStream stream) throws IOException {
+      byte[] bytes = stream.readNBytes(24 * 1024 * 1024 + 1);
+      if (bytes.length > 24 * 1024 * 1024)
+        throw new IllegalArgumentException("Ukuran kiriman melebihi 24 MB.");
+      if (type == null || !type.startsWith("multipart/form-data"))
+        return query(new String(bytes, StandardCharsets.UTF_8));
+      var matcher = java.util.regex.Pattern.compile("boundary=\"?([^\";]+)").matcher(type);
+      if (!matcher.find()) throw new IllegalArgumentException("Format lampiran tidak valid.");
+      String delim = "--" + matcher.group(1);
+      String raw = new String(bytes, StandardCharsets.ISO_8859_1);
+      Params p = new Params();
+      int start = raw.indexOf(delim) + delim.length();
+      while (start >= delim.length() && raw.startsWith("\r\n", start)) {
+        int headerEnd = raw.indexOf("\r\n\r\n", start),
+            end = raw.indexOf("\r\n" + delim, headerEnd + 4);
+        if (headerEnd < 0 || end < 0)
+          throw new IllegalArgumentException("Data unggahan tidak lengkap.");
+        String header = raw.substring(start, headerEnd);
+        var name = java.util.regex.Pattern.compile("(?:^|; )name=\"([^\"]+)\"").matcher(header);
+        var file = java.util.regex.Pattern.compile("filename=\"([^\"]*)\"").matcher(header);
+        byte[] data = raw.substring(headerEnd + 4, end).getBytes(StandardCharsets.ISO_8859_1);
+        if (name.find()) {
+          if (file.find()) {
+            if (!file.group(1).isEmpty()) p.files.add(receipt(file.group(1), data));
+          } else p.add(name.group(1), new String(data, StandardCharsets.UTF_8));
+        }
+        start = end + 2 + delim.length();
+      }
+      return p;
+    }
+
+    static Audit.Receipt receipt(String filename, byte[] data) {
+      if (data.length < 5 || data.length > 10 * 1024 * 1024)
+        throw new IllegalArgumentException("Nota harus berukuran 1 byte–10 MB.");
+      String mime;
+      if (data[0] == (byte) 0xff && data[1] == (byte) 0xd8 && data[2] == (byte) 0xff)
+        mime = "image/jpeg";
+      else if (data.length >= 8
+          && java.util.Arrays.equals(
+              Arrays.copyOf(data, 8), new byte[] {(byte) 137, 80, 78, 71, 13, 10, 26, 10}))
+        mime = "image/png";
+      else if (new String(data, 0, 5, StandardCharsets.US_ASCII).equals("%PDF-"))
+        mime = "application/pdf";
+      else throw new IllegalArgumentException("Pilih nota JPG, PNG, atau PDF.");
+      String safe = filename.replaceAll("[^\\p{L}\\p{N}._ -]", "_");
+      return new Audit.Receipt(safe.substring(0, Math.min(safe.length(), 130)), mime, data);
+    }
+  }
 }
