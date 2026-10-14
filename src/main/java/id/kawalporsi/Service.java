@@ -135,6 +135,42 @@ final class Service {
               session.message = "Laporan " + id + " diterima dan tersedia untuk auditor wilayah.";
               return "report";
             }
+            case "purchase" -> {
+              require(u, "PETUGAS");
+              List<String> ids = p.values.getOrDefault("food", List.of()),
+                  qty = p.values.getOrDefault("qty", List.of()),
+                  amount = p.values.getOrDefault("amount", List.of());
+              if (qty.size() != ids.size() || amount.size() != ids.size())
+                throw new IllegalArgumentException("Baris bahan belum lengkap.");
+              var lines = new ArrayList<Audit.Line>();
+              try {
+                for (int i = 0; i < ids.size(); i++)
+                  lines.add(
+                      new Audit.Line(
+                          ids.get(i),
+                          new BigDecimal(qty.get(i)),
+                          Long.parseLong(amount.get(i)),
+                          0));
+              } catch (NumberFormatException ex) {
+                throw new IllegalArgumentException("Isi volume dan total rupiah setiap bahan.");
+              }
+              boolean draft = p.get("mode").equals("draft");
+              String id =
+                  new Audit()
+                      .save(
+                          c,
+                          u.str("kitchen"),
+                          u.str("name"),
+                          LocalDate.now(),
+                          p.required("menu", 240),
+                          (int) p.positive("portions", 1000000),
+                          lines,
+                          p.files,
+                          draft);
+              dest = draft ? "entry" : "detail&id=" + url(id);
+              session.message = draft ? "Draf disimpan." : "Catatan dikirim dan diperiksa.";
+              return dest;
+            }
             default -> {
               require(u, "ADMIN");
               dest = admin(c, u, op, p);
