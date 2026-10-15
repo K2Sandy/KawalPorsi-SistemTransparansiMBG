@@ -223,4 +223,99 @@ final class Service {
           return dest;
         });
   }
+
+  static String admin(Connection c, Row u, String op, Params p) throws SQLException {
+    String note = p.required("reason", 500);
+    String result, description;
+    switch (op) {
+      case "rules" -> {
+        String strat = p.get("strategy");
+        if (!List.of("PORTION", "UNIT").contains(strat))
+          throw new IllegalArgumentException("Pilih strategi.");
+        long threshold = p.positive("tolerance", 20);
+        update(
+            c,
+            "update rules set tolerance=?,strategy=?,secondary=?,low_flag=?,notify=? where id=1",
+            threshold,
+            strat,
+            p.on("secondary"),
+            p.on("low"),
+            p.on("notify"));
+        result = "rules";
+        description = "Aturan audit: " + strat + ", " + threshold + "%";
+      }
+      case "price" -> {
+        String id = p.get("id"), name = p.required("name", 120), kind = p.get("kind");
+        if (!List.of("Basah", "Kering").contains(kind))
+          throw new IllegalArgumentException("Pilih jenis bahan.");
+        long price = p.positive("price", 100000000);
+        if (id.isBlank()) {
+          id = "BP-" + token().substring(0, 7);
+          update(c, "insert into food(id,name,kind,price) values(?,?,?,?)", id, name, kind, price);
+        } else {
+          one(c, "select id from food where id=?", id);
+          update(c, "update food set name=?,kind=?,price=? where id=?", name, kind, price, id);
+        }
+        Integer shelf =
+            kind.equals("Basah") && !p.get("shelf").isBlank()
+                ? (int) p.positive("shelf", 730)
+                : null;
+        LocalDate expiry =
+            kind.equals("Kering") && !p.get("expiry").isBlank()
+                ? LocalDate.parse(p.get("expiry"))
+                : null;
+        update(c, "update food set shelf_days=?,expiry=? where id=?", shelf, expiry, id);
+        result = "foods";
+        description = "Harga acuan " + name + " = " + rp(price);
+      }
+      case "isb" -> {
+        String region = p.required("region", 90);
+        long value = p.positive("isb", 10000000);
+        one(c, "select name from region where name=?", region);
+        update(c, "update region set isb=? where name=?", value, region);
+        result = "isb";
+        description = "ISB " + region + " = " + rp(value);
+      }
+      case "createUser" -> {
+        String role = p.get("role");
+        String kid = null, region = "";
+        if (role.equals("PETUGAS")) {
+          kid = p.get("kitchen");
+          one(c, "select id from kitchen where id=?", kid);
+        } else if (role.equals("AUDITOR")) {
+          region = p.get("region");
+          one(c, "select name from region where name=?", region);
+        } else if (!role.equals("ADMIN")) throw new IllegalArgumentException("Pilih peran.");
+        String pass = p.required("pass", 70);
+        if (pass.length() < 10)
+          throw new IllegalArgumentException("Kata sandi awal minimal 10 karakter.");
+        String id = p.required("account", 80);
+        if (!rows(c, "select id from account where id=?", id).isEmpty())
+          throw new IllegalArgumentException("Kode pengguna sudah terdaftar.");
+        update(
+            c,
+            "insert into account values(?,?,?,?,?,?,true)",
+            id,
+            p.required("name", 120),
+            role,
+            kid,
+            region,
+            BCrypt.hashpw(pass, BCrypt.gensalt(10)));
+        result = "users";
+        description = "Akun baru " + id;
+      }
+      case "toggle" -> {
+        String id = p.get("id");
+        if (id.equals(u.str("id")))
+          throw new IllegalArgumentException("Akun Anda sendiri harus tetap aktif.");
+        one(c, "select id from account where id=? for update", id);
+        update(c, "update account set active=? where id=?", p.get("active").equals("true"), id);
+        result = "users";
+        description = "Status akun " + id;
+      }
+      default -> throw new IllegalArgumentException("Tindakan tidak dikenal.");
+    }
+    Audit.log(c, null, u.str("name"), description, note);
+    return result;
+  }
 }
