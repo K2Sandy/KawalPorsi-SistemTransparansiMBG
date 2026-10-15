@@ -171,6 +171,49 @@ final class Service {
               session.message = draft ? "Draf disimpan." : "Catatan dikirim dan diperiksa.";
               return dest;
             }
+            case "review", "reply" -> {
+              boolean reply = op.equals("reply");
+              require(u, reply ? "PETUGAS" : "AUDITOR");
+              Row t = record(c, u, p.get("id"), true);
+              String state = t.str("state"), id = t.str("id");
+              String next = reply ? "REVIEW" : p.get("next");
+              String note = p.required("note", 1000);
+              if (reply) {
+                if (!state.equals("WAITING"))
+                  throw new IllegalArgumentException("Tidak ada permintaan klarifikasi terbuka.");
+                note = p.required("cause", 70) + " — " + note;
+                if (p.files.size() > 3)
+                  throw new IllegalArgumentException("Maksimal tiga lampiran.");
+                for (var f : p.files) Audit.attach(c, id, f);
+              } else if (!List.of("FLAGGED", "REVIEW", "WAITING").contains(state)
+                  || !List.of("WAITING", "CLEARED", "REJECTED").contains(next)
+                  || next.equals(state))
+                throw new IllegalArgumentException("Status berubah. Periksa transaksi kembali.");
+              update(c, "update purchase set state=? where id=?", next, id);
+              String event =
+                  switch (next) {
+                    case "WAITING" -> "Menunggu klarifikasi";
+                    case "REVIEW" -> "Klarifikasi diterima";
+                    case "CLEARED" -> "Disetujui auditor";
+                    default -> "Ditolak auditor";
+                  };
+              Audit.log(c, id, u.str("name"), event, note);
+              update(c, "insert into alert(purchase,message) values(?,?)", id, event);
+              dest = "detail&id=" + url(id);
+            }
+            case "reportDone" -> {
+              require(u, "AUDITOR");
+              var r =
+                  one(
+                      c,
+                      "select z.*,k.region from citizen z join kitchen k on k.id=z.kitchen where"
+                          + " z.id=? for update",
+                      p.get("id"));
+              if (!scope(u, r)) throw new SecurityException("Di luar wilayah pengawasan.");
+              update(c, "update citizen set state='DITINJAU' where id=?", p.get("id"));
+              Audit.log(c, null, u.str("name"), "Laporan warga ditinjau", p.get("id"));
+              dest = "reports";
+            }
             default -> {
               require(u, "ADMIN");
               dest = admin(c, u, op, p);
