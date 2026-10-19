@@ -103,4 +103,61 @@ class Pages {
     for (Row r : rows(c, sql)) b.append(option(r.str("id"), r.str("name"), current));
     return b.toString();
   }
+
+  String login(String flash) throws SQLException {
+    String role = List.of("AUDITOR", "ADMIN").contains(q.get("role")) ? q.get("role") : "PETUGAS";
+    StringBuilder tabs = new StringBuilder("<div class='tabs' aria-label='Masuk sebagai'>");
+    for (var r : new String[] {"PETUGAS", "AUDITOR", "ADMIN"})
+      tabs.append(a("login&role=" + r, h(roleName(r)), r.equals(role) ? "selected" : ""));
+    tabs.append("</div>");
+    String account =
+        switch (role) {
+          case "AUDITOR" -> "198804122014";
+          case "ADMIN" -> "198203152008";
+          default -> "SPPG-AB-0107";
+        };
+    String latest = new PublicPages(this).latest();
+    return "<div class='login'><div class='loginLeft'><div class='loginForm'>"
+        + logo()
+        + title("Masuk ke KawalPorsi", "Untuk petugas dapur, auditor, dan admin program MBG.")
+        + flash
+        + "<strong class='fieldLabel'>Masuk sebagai</strong>"
+        + tabs
+        + form("login", false)
+        + hidden("role", role)
+        + field(
+            role.equals("PETUGAS") ? "Kode dapur (SPPG)" : "Nomor induk pegawai (NIP)",
+            input("account", account, "text", "required autocomplete='username'"))
+        + field(
+            "Kata sandi",
+            "<div class='password'>"
+                + input("password", "", "password", "required autocomplete='current-password'")
+                + "<button type='button' data-password>Tampilkan</button></div>")
+        + "<details><summary>Akun demo & bantuan masuk</summary><p>Kata sandi ketiga akun demo:"
+        + " <code>KawalPorsi2026!</code>. Kode pengguna mengikuti peran yang dipilih.</p></details>"
+        + button("Masuk")
+        + "</form><div class='or'>atau</div>"
+        + a(
+            "public",
+            icon("a11ae")
+                + "<span><b>Lihat dasbor publik</b><small>Tanpa akun. Untuk orang tua, sekolah, dan"
+                + " masyarakat.</small></span>"
+                + icon("2c1b9"),
+            "publicLink")
+        + "</div><footer>Kelompok 10 · Informatika USK · 2026</footer></div><aside"
+        + " class='loginRight'><div><h1>Setiap rupiah belanja dapur MBG tercatat dan bisa dicek"
+        + " siapa saja.</h1><p>Biaya bahan per porsi dibandingkan otomatis dengan Indeks Standar"
+        + " Biaya daerah. Yang janggal ditandai untuk diperiksa auditor, bukan langsung"
+        + " dituduh.</p>"
+        + latest
+        + "</div></aside></div>";
+  }
+
+  static String roleName(String role) {
+    return switch (role) {
+      case "PETUGAS" -> "Petugas Dapur";
+      case "AUDITOR" -> "Auditor";
+      default -> "Admin";
+    };
+  }
 }
