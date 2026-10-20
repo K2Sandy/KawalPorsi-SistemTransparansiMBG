@@ -104,6 +104,51 @@ class Pages {
     return b.toString();
   }
 
+  String render() throws SQLException {
+    String message = s.message;
+    s.message = "";
+    String flash = message.isEmpty() ? "" : notice(message);
+    if (v.equals("login")) return login(flash);
+    if (List.of("public", "directory", "kitchen", "method", "report").contains(v))
+      return new PublicPages(this).render(flash);
+    String content =
+        switch (v) {
+          case "home", "entry", "history", "clarify" -> {
+            require(u, "PETUGAS");
+            yield v.equals("entry") ? new Entry(this).render() : new Staff(this).render();
+          }
+          case "queue", "all", "kitchens", "reports" -> {
+            require(u, "AUDITOR");
+            yield new Staff(this).render();
+          }
+          case "trail", "alerts" -> {
+            require(u, "AUDITOR", "ADMIN", "PETUGAS");
+            yield new Staff(this).render();
+          }
+          case "detail" -> {
+            require(u, "PETUGAS", "AUDITOR", "ADMIN");
+            yield new Staff(this).detail();
+          }
+          case "overview", "foods", "isb", "rules", "users" -> {
+            require(u, "ADMIN");
+            yield new Admin(this).render();
+          }
+          case "guide" -> {
+            require(u, "PETUGAS", "AUDITOR", "ADMIN");
+            yield title("Panduan & bantuan", "Alur kerja KawalPorsi")
+                + paper(
+                    "Alur transaksi",
+                    "<ol><li>Petugas mengisi belanja dan porsi lalu mengirimnya.</li><li>Sistem"
+                        + " membandingkan biaya dengan acuan. Klaim yang ditandai"
+                        + " ditahan.</li><li>Auditor memeriksa nota, meminta klarifikasi, lalu"
+                        + " mengambil keputusan.</li></ol>"
+                        + link("method", "Cara membaca data publik"));
+          }
+          default -> throw new IllegalArgumentException("Halaman tidak ditemukan.");
+        };
+    return shell(flash + content);
+  }
+
   String login(String flash) throws SQLException {
     String role = List.of("AUDITOR", "ADMIN").contains(q.get("role")) ? q.get("role") : "PETUGAS";
     StringBuilder tabs = new StringBuilder("<div class='tabs' aria-label='Masuk sebagai'>");
@@ -159,5 +204,65 @@ class Pages {
       case "AUDITOR" -> "Auditor";
       default -> "Admin";
     };
+  }
+
+  String shell(String body) throws SQLException {
+    String role = u.str("role");
+    String[] nav =
+        switch (role) {
+          case "PETUGAS" ->
+              new String[] {"home:96993", "entry:301b6", "history:b17db", "clarify:b6644"};
+          case "AUDITOR" ->
+              new String[] {
+                "queue:b19c0", "all:301b6", "kitchens:06969", "trail:b17db", "reports:b6644"
+              };
+          default ->
+              new String[] {
+                "overview:96993", "foods:fd5b9", "isb:ea48b", "rules:e3f69", "users:f4e66"
+              };
+        };
+    StringBuilder links = new StringBuilder();
+    for (String item : nav) {
+      String[] bits = item.split(":");
+      links.append(
+          a(bits[0], icon(bits[1]) + h(LABEL.get(bits[0])), bits[0].equals(v) ? "active" : ""));
+    }
+    String scope =
+        switch (role) {
+          case "PETUGAS" ->
+              one(c, "select name,region from kitchen where id=?", u.str("kitchen")).str("name");
+          case "AUDITOR" -> u.str("regions").replace("|", " · ");
+          default -> "Provinsi Aceh";
+        };
+    return "<div class='shell'><aside class='sidebar'>"
+        + logo()
+        + "<div class='context'><small>"
+        + (role.equals("PETUGAS") ? "Dapur" : "Lingkup pengawasan")
+        + "</small>"
+        + h(scope)
+        + "</div><nav>"
+        + links
+        + "</nav><div class='sidefoot'>"
+        + a("guide", icon("55b81") + "Panduan & bantuan", "")
+        + link("public", "Dasbor publik")
+        + "<hr><b>"
+        + h(u.str("name"))
+        + "</b><small>"
+        + roleName(role)
+        + "</small>"
+        + form("logout", false)
+        + "<button class='textBtn'>Keluar</button></form></div></aside><div class='main'><div"
+        + " class='topbar'><b>"
+        + h(LABEL.getOrDefault(v, v))
+        + "</b><div><span class='role'>"
+        + roleName(role)
+        + "</span><span class='dateChip'>"
+        + date(LocalDate.now())
+        + "</span>"
+        + a("alerts", icon("3256c") + "<span class='sr'>Notifikasi</span>", "iconBtn")
+        + "</div></div><main><a router-ignore class='liveAlert' role='status' data-alert-update"
+        + " hidden href='/?v=alerts'></a>"
+        + body
+        + "</main></div></div>";
   }
 }
