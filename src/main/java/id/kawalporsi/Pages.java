@@ -265,4 +265,42 @@ class Pages {
         + body
         + "</main></div></div>";
   }
+
+  static double cost(Row r) {
+    return r.num("total") / (double) r.num("portions");
+  }
+
+  static double diff(Row r) {
+    return (cost(r) / r.num("isb") - 1) * 100;
+  }
+
+  static String details(Row r) {
+    return "detail&id=" + url(r.str("id"));
+  }
+
+  String list(List<Row> data, boolean pub) {
+    StringBuilder b = new StringBuilder();
+    for (Row r : data) {
+      String state = r.str("state");
+      boolean show = !pub || released(state);
+      String id =
+          pub
+              ? h(r.str("kitchen_name"))
+              : link(state.equals("DRAFT") ? "entry" : details(r), r.str("id"));
+      b.append(
+          tr(
+              h(r.str("day_date")),
+              id,
+              pub ? h(r.str("region")) : h(r.str("kitchen_name")),
+              num(r.num("portions")),
+              show ? rp(cost(r)) : "—",
+              show ? pct(diff(r)) : "—",
+              badge(pub ? statusPublic(state) : state)));
+    }
+    return table(
+        "Tanggal|"
+            + (pub ? "Dapur|Wilayah" : "Transaksi|Dapur")
+            + "|Porsi|Biaya per porsi|Deviasi|Status",
+        b.toString());
+  }
 }
