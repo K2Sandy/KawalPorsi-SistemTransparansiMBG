@@ -161,4 +161,16 @@ final class Entry {
         + "<button type='button' data-remove aria-label='Hapus bahan'>×</button></div><small"
         + " data-reference></small></div>";
   }
+
+  static String attachments(Connection c, String id) throws SQLException {
+    StringBuilder b = new StringBuilder();
+    for (Row r : rows(c, "select id,name from evidence where purchase=? order by name", id))
+      b.append("<p><a router-ignore class='link' href='/file?id=")
+          .append(url(r.str("id")))
+          .append("'>")
+          .append(icon("50310"))
+          .append(h(r.str("name")))
+          .append("</a></p>");
+    return b.isEmpty() ? "<small>Belum ada lampiran.</small>" : b.toString();
+  }
 }
