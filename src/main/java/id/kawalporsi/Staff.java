@@ -133,4 +133,60 @@ final class Staff {
   int releasedCount(List<Row> all) {
     return PublicPages.releasedOnly(all).size();
   }
+
+  String reports() throws SQLException {
+    var b = new StringBuilder();
+    for (Row r :
+        rows(
+            p.c,
+            "select z.*,k.region,k.name from citizen z join kitchen k on k.id=z.kitchen order by"
+                + " z.stamp desc"))
+      if (scope(p.u, r))
+        b.append(
+            tr(
+                h(r.str("id")),
+                h(r.str("name")),
+                h(r.str("day_date")),
+                h(r.str("note")),
+                h(r.str("state")),
+                r.str("state").equals("BARU")
+                    ? p.form("reportDone", false)
+                        + hidden("id", r.str("id"))
+                        + button("Tandai ditinjau")
+                        + "</form>"
+                    : "—"));
+    return title("Laporan warga", "Laporan yang masuk dari masyarakat di wilayah Anda.")
+        + paper(
+            "Kotak masuk",
+            table("Kode|Dapur|Tanggal kejadian|Laporan|Status|Tindakan", b.toString()));
+  }
+
+  String events(List<Row> all, boolean alerts) throws SQLException {
+    var ids = new HashSet<String>();
+    all.forEach(r -> ids.add(r.str("id")));
+    var b = new StringBuilder();
+    for (Row e :
+        rows(
+            p.c,
+            alerts
+                ? "select purchase,stamp,message action from alert order by seq desc"
+                : "select * from event order by seq desc")) {
+      String id = e.str("purchase");
+      if (!ids.contains(id) && !(id.isEmpty() && p.u.str("role").equals("ADMIN"))) continue;
+      b.append(
+          tr(
+              h(e.str("stamp").substring(0, 16)),
+              id.isEmpty() ? "Konfigurasi" : link("detail&id=" + url(id), id),
+              h(e.str("action")),
+              h(e.str("actor")),
+              h(e.str("note"))));
+    }
+    return title(
+            alerts ? "Notifikasi" : "Jejak audit",
+            alerts
+                ? "Pesan dari pemeriksaan transaksi di wilayah Anda."
+                : "Riwayat tindakan tersimpan menurut waktu kejadian.")
+        + paper(
+            "Aktivitas terbaru", table("Waktu|Transaksi|Tindakan|Pelaku|Catatan", b.toString()));
+  }
 }
