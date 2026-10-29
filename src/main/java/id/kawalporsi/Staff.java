@@ -189,4 +189,101 @@ final class Staff {
         + paper(
             "Aktivitas terbaru", table("Waktu|Transaksi|Tindakan|Pelaku|Catatan", b.toString()));
   }
+
+  String detail() throws SQLException {
+    Row t = record(p.c, p.u, p.q.get("id"), false);
+    String id = t.str("id"), state = t.str("state"), role = p.u.str("role");
+    StringBuilder items = new StringBuilder(), timeline = new StringBuilder();
+    for (Row r : rows(p.c, "select * from item where purchase=? order by seq", id))
+      items.append(
+          tr(
+              h(r.str("label")),
+              h(r.dec("qty").stripTrailingZeros().toPlainString()),
+              rp(r.num("amount")),
+              rp(r.num("amount") / r.dec("qty").doubleValue()),
+              rp(r.num("reference_price"))));
+    for (Row r : rows(p.c, "select * from event where purchase=? order by seq desc", id))
+      timeline
+          .append("<article class='event'><small>")
+          .append(h(r.str("stamp").substring(0, 16)))
+          .append(" · ")
+          .append(h(r.str("actor")))
+          .append("</small><b>")
+          .append(h(r.str("action")))
+          .append("</b><p>")
+          .append(h(r.str("note")))
+          .append("</p></article>");
+    String actions = "";
+    if (role.equals("AUDITOR") && open(state))
+      actions =
+          paper(
+              "Keputusan auditor",
+              p.form("review", false)
+                  + hidden("id", id)
+                  + field(
+                      "Tindakan",
+                      "<select name='next'>"
+                          + (state.equals("WAITING")
+                              ? ""
+                              : option("WAITING", "Minta klarifikasi", ""))
+                          + option("CLEARED", "Setujui dan buka klaim", "")
+                          + option("REJECTED", "Tolak klaim", "")
+                          + "</select>")
+                  + field(
+                      "Pertanyaan atau alasan keputusan",
+                      "<textarea name='note' required maxlength='1000'></textarea>")
+                  + button("Simpan keputusan")
+                  + "</form>");
+    if (role.equals("PETUGAS") && state.equals("WAITING"))
+      actions =
+          paper(
+              "Jawaban Anda",
+              p.form("reply", true)
+                  + hidden("id", id)
+                  + field(
+                      "Penyebab utama",
+                      "<select name='cause'><option>Kenaikan harga pasar</option><option>Kesalahan"
+                          + " pencatatan</option><option>Jumlah porsi"
+                          + " berubah</option><option>Lainnya</option></select>")
+                  + field(
+                      "Penjelasan", "<textarea name='note' maxlength='1000' required></textarea>")
+                  + field(
+                      "Lampiran bukti",
+                      input(
+                          "receipt",
+                          "",
+                          "file",
+                          "multiple accept='image/jpeg,image/png,application/pdf'"))
+                  + button("Kirim klarifikasi")
+                  + "</form>");
+    return title(
+            role.equals("PETUGAS") && state.equals("WAITING")
+                ? "Klarifikasi transaksi"
+                : t.str("kitchen_name"),
+            id + " · " + t.str("day_date") + " · " + t.str("menu"))
+        + badge(state)
+        + (open(state) ? notice("Klaim anggaran dibekukan sementara. " + t.str("reason")) : "")
+        + "<div class='metrics'>"
+        + kpi(
+            "Biaya per porsi",
+            rp(cost(t)),
+            rp(t.num("total")) + " ÷ " + num(t.num("portions")) + " porsi")
+        + kpi("ISB " + t.str("region"), rp(t.num("isb")), "Acuan saat transaksi dikirim")
+        + kpi(
+            "Deviasi",
+            pct(diff(t)),
+            "Ambang ±" + t.dec("tolerance").stripTrailingZeros().toPlainString() + "%")
+        + "</div><div class='columns'><div>"
+        + paper(
+            "Rincian belanja",
+            table("Bahan|Volume (kg)|Total|Harga/kg|Acuan/kg", items.toString())
+                + "<small>Strategi: "
+                + h(t.str("strategy"))
+                + "</small>")
+        + paper("Bukti nota", Entry.attachments(p.c, id))
+        + actions
+        + "</div><div>"
+        + paper("Jejak audit", timeline.toString())
+        + "</div></div>";
+  }
 }
