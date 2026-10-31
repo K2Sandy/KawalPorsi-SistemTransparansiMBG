@@ -71,4 +71,50 @@ final class PublicPages {
         + link("report", "Laporkan kejanggalan")
         + "</footer></div>";
   }
+
+  String report() throws SQLException {
+    return title(
+            "Form laporan warga", "Sampaikan kejanggalan yang Anda amati kepada auditor wilayah.")
+        + paper(
+            "Laporkan kejanggalan",
+            p.form("report", false)
+                + field(
+                    "Dapur",
+                    "<select name='kitchen' required>"
+                        + p.opts("select id,name from kitchen order by name", "")
+                        + "</select>")
+                + field(
+                    "Tanggal kejadian",
+                    input(
+                        "date",
+                        LocalDate.now().toString(),
+                        "date",
+                        "required max='" + LocalDate.now() + "'"))
+                + field(
+                    "Uraian kejadian",
+                    "<textarea name='note' required maxlength='1200' placeholder='Tuliskan waktu,"
+                        + " lokasi, dan hal yang Anda amati.'></textarea>")
+                + button("Kirim laporan")
+                + "</form>");
+  }
+
+  static String method() {
+    return paper(
+            "Apa yang dihitung?",
+            "<p>Biaya per porsi = jumlah belanja bahan pangan dibagi porsi yang dimasak. Biaya"
+                + " operasional seperti gas dan gaji tidak dihitung. Rata-rata menghitung total"
+                + " rupiah dibagi total porsi pada catatan yang disetujui.</p>")
+        + paper(
+            "Status pada dasbor",
+            badge("APPROVED")
+                + "<p>Transaksi lolos uji sesuai aturan yang berlaku saat dikirim.</p>"
+                + badge("PENDING")
+                + "<p>Auditor memeriksa bukti. Biaya dan deviasi transaksi disembunyikan dan"
+                + " dikeluarkan dari rata-rata.</p>"
+                + badge("CLEARED")
+                + "<p>Auditor menerima penjelasan setelah memeriksa transaksi.</p>"
+                + badge("REJECTED")
+                + "<p>Auditor menolak klaim. Nilai ini tidak masuk rata-rata biaya yang"
+                + " disetujui.</p>");
+  }
 }
