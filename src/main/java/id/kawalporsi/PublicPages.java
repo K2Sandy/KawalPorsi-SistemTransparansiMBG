@@ -117,4 +117,147 @@ final class PublicPages {
                 + "<p>Auditor menolak klaim. Nilai ini tidak masuk rata-rata biaya yang"
                 + " disetujui.</p>");
   }
+
+  static List<Row> releasedOnly(List<Row> data) {
+    return data.stream().filter(r -> released(r.str("state"))).toList();
+  }
+
+  static double average(List<Row> data) {
+    long total = data.stream().mapToLong(r -> r.num("total")).sum(),
+        n = data.stream().mapToLong(r -> r.num("portions")).sum();
+    return n == 0 ? 0 : total / (double) n;
+  }
+
+  List<Row> period(List<Row> all) {
+    String m = p.q.get("month").isEmpty() ? YearMonth.now().toString() : p.q.get("month");
+    return all.stream()
+        .filter(
+            r ->
+                r.str("day_date").startsWith(m)
+                    && (p.q.get("region").isEmpty() || p.q.get("region").equals(r.str("region"))))
+        .toList();
+  }
+
+  String dashboard() throws SQLException {
+    List<Row> set = period(data()), approved = releasedOnly(set);
+    String form =
+        "<form class='filters' method='get'>"
+            + hidden("v", "public")
+            + field(
+                "Wilayah",
+                "<select name='region'>"
+                    + option("", "Provinsi Aceh", p.q.get("region"))
+                    + p.opts("select name id,name from region order by name", p.q.get("region"))
+                    + "</select>")
+            + field(
+                "Periode",
+                input(
+                    "month",
+                    p.q.get("month").isEmpty() ? YearMonth.now().toString() : p.q.get("month"),
+                    "month",
+                    "required"))
+            + button("Terapkan")
+            + "</form>";
+    StringBuilder bars = new StringBuilder();
+    for (String region : set.stream().map(r -> r.str("region")).distinct().toList()) {
+      List<Row> regionData = approved.stream().filter(r -> r.str("region").equals(region)).toList();
+      bars.append(
+          tr(
+              h(region),
+              regionData.isEmpty() ? "—" : rp(average(regionData)),
+              regionData.isEmpty()
+                  ? "—"
+                  : gauge(
+                      average(regionData),
+                      regionData.stream()
+                              .mapToDouble(r -> r.num("isb") * (double) r.num("portions"))
+                              .sum()
+                          / regionData.stream().mapToLong(r -> r.num("portions")).sum(),
+                      regionData.getFirst().dec("tolerance").doubleValue())));
+    }
+    long pending = set.stream().filter(r -> open(r.str("state"))).count();
+    return title(
+            "Transparansi belanja Dapur MBG",
+            "Biaya bahan pangan untuk satu porsi makan bergizi gratis dibandingkan dengan Indeks"
+                + " Standar Biaya (ISB) daerah.")
+        + form
+        + "<div class='metrics'>"
+        + kpi(
+            "Rata-rata biaya per porsi",
+            approved.isEmpty() ? "—" : rp(average(approved)),
+            "Transaksi disetujui")
+        + kpi(
+            "Dapur yang melapor",
+            "" + set.stream().map(r -> r.str("kitchen")).distinct().count(),
+            "Dalam periode terpilih")
+        + kpi(
+            "Porsi dilaporkan",
+            num(set.stream().mapToLong(r -> r.num("portions")).sum()),
+            "Sepanjang periode")
+        + kpi("Sedang diverifikasi", "" + pending, "Biaya disembunyikan")
+        + "</div>"
+        + "<div class='columns'><div>"
+        + paper(
+            "Biaya bahan per porsi menurut kabupaten/kota",
+            table("Wilayah|Rata-rata|Terhadap ISB", bars.toString()))
+        + "</div><div>"
+        + paper(
+            "Status transaksi",
+            trSummary(approved.size(), pending, set.size() - approved.size() - pending)
+                + link("method", "Pelajari metode penghitungan →"))
+        + "</div></div>"
+        + trend(approved)
+        + directory();
+  }
+
+  static String trSummary(long ok, long pending, long rejected) {
+    return "<p>"
+        + badge("APPROVED")
+        + " <b>"
+        + ok
+        + "</b></p><p>"
+        + badge("PENDING")
+        + " <b>"
+        + pending
+        + "</b></p><p>"
+        + badge("REJECTED")
+        + " <b>"
+        + rejected
+        + "</b></p>";
+  }
+
+  static String gauge(double value, double base, double tolerance) {
+    double pos = Math.max(0, Math.min(100, 50 + (value / base - 1) * 200)),
+        half = Math.min(50, tolerance * 2);
+    return "<div class='gauge' title='"
+        + pct((value / base - 1) * 100)
+        + "'><i style='left:"
+        + (50 - half)
+        + "%;width:"
+        + (half * 2)
+        + "%'></i><b style='left:"
+        + pos
+        + "%'></b></div>";
+  }
+
+  static String trend(List<Row> approved) {
+    var dates = new TreeMap<String, List<Row>>();
+    for (Row r : approved) dates.computeIfAbsent(r.str("day_date"), k -> new ArrayList<>()).add(r);
+    if (dates.isEmpty())
+      return paper(
+          "Tren biaya per porsi harian", "<p>Belum ada nilai terverifikasi pada periode ini.</p>");
+    double max = dates.values().stream().mapToDouble(PublicPages::average).max().orElse(1);
+    var html = new StringBuilder("<div class='trend'>");
+    for (var e : dates.entrySet()) {
+      double val = average(e.getValue());
+      html.append("<div><small>")
+          .append(rp(val))
+          .append("</small><i style='height:")
+          .append(Math.max(6, 90 * val / max))
+          .append("px'></i><small>")
+          .append(h(e.getKey().substring(5)))
+          .append("</small></div>");
+    }
+    return paper("Tren biaya per porsi harian", html.append("</div>").toString());
+  }
 }
