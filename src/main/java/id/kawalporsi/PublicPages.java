@@ -260,4 +260,43 @@ final class PublicPages {
     }
     return paper("Tren biaya per porsi harian", html.append("</div>").toString());
   }
+
+  String directory() throws SQLException {
+    StringBuilder b = new StringBuilder();
+    for (Row r : rows(p.c, "select id,name,region from kitchen order by name")) {
+      if (!(r.str("name") + " " + r.str("region"))
+          .toLowerCase(ID)
+          .contains(p.q.get("search").toLowerCase(ID))) continue;
+      b.append(
+          tr(
+              link("kitchen&id=" + url(r.str("id")), r.str("name")),
+              h(r.str("region")),
+              linkBtn("kitchen&id=" + url(r.str("id")), "Detail dapur")));
+    }
+    return paper(
+        "Daftar dapur",
+        p.filter("directory", "Cari nama dapur atau wilayah")
+            + table("Dapur|Wilayah|Rincian", b.toString())
+            + "<p><a router-ignore class='link' href='/export'>Unduh data publik (CSV)</a></p>");
+  }
+
+  String detail() throws SQLException {
+    Row k = one(p.c, "select * from kitchen where id=?", p.q.get("id"));
+    List<Row> set = data().stream().filter(r -> r.str("kitchen").equals(k.str("id"))).toList(),
+        ok = releasedOnly(set);
+    return link("directory", "← Daftar dapur")
+        + title(k.str("name"), k.str("region"))
+        + "<div class='metrics'>"
+        + kpi(
+            "Rata-rata biaya per porsi", ok.isEmpty() ? "—" : rp(average(ok)), "Catatan disetujui")
+        + kpi("Hari melapor", "" + set.size(), "Seluruh riwayat")
+        + kpi(
+            "Sedang diverifikasi",
+            "" + set.stream().filter(r -> open(r.str("state"))).count(),
+            "Menunggu keputusan")
+        + "</div>"
+        + trend(ok)
+        + paper("Riwayat terakhir", p.list(set, true))
+        + linkBtn("report", "Laporkan kejanggalan");
+  }
 }
