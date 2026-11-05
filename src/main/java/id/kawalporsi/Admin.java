@@ -129,4 +129,87 @@ final class Admin {
             "Perubahan berlaku untuk transaksi baru dan tercatat di jejak audit.")
         + f;
   }
+
+  String foods() throws SQLException {
+    Row current = new Row();
+    var b = new StringBuilder();
+    for (Row r : rows(p.c, "select * from food order by name")) {
+      if (r.str("id").equals(p.q.get("id"))) current = r;
+      if ((r.str("id") + " " + r.str("name"))
+          .toLowerCase(ID)
+          .contains(p.q.get("search").toLowerCase(ID)))
+        b.append(
+            tr(
+                h(r.str("name")) + "<small>" + h(r.str("id")) + "</small>",
+                h(r.str("kind")),
+                rp(r.num("price")),
+                h(BahanPangan.from(r).penyimpanan()),
+                link("foods&id=" + url(r.str("id")), "Ubah")));
+    }
+    String form =
+        p.form("price", false)
+            + hidden("id", current.str("id"))
+            + field(
+                "Nama bahan",
+                input("name", current.str("name"), "text", "required maxlength='120'"))
+            + field(
+                "Jenis bahan",
+                "<select name='kind'>"
+                    + option("Basah", "Basah", current.str("kind"))
+                    + option("Kering", "Kering", current.str("kind"))
+                    + "</select>")
+            + field(
+                "Harga acuan per kg (Rp)",
+                input("price", current.str("price"), "number", "required min='1'"))
+            + field(
+                "Masa simpan bahan basah (hari)",
+                input("shelf", current.str("shelf_days"), "number", "min=1 max=730"))
+            + field(
+                "Kedaluwarsa bahan kering (opsional)",
+                input("expiry", current.str("expiry"), "date", ""))
+            + reason()
+            + button("Simpan bahan")
+            + "</form>";
+    return title(
+            "Bahan & harga acuan", "Harga acuan per kg dipakai untuk menilai setiap belanja dapur.")
+        + "<div class='columns'><div>"
+        + paper(
+            "Bahan pangan",
+            p.filter("foods", "Cari bahan atau kode")
+                + table("Bahan|Jenis|Harga acuan/kg|Penyimpanan|Tindakan", b.toString())
+                + link("foods", "＋ Tambah bahan"))
+        + "</div><div>"
+        + paper(current.isEmpty() ? "Tambah bahan" : "Ubah harga acuan", form)
+        + "</div></div>";
+  }
+
+  String isb() throws SQLException {
+    var regions = rows(p.c, "select * from region order by name");
+    var b = new StringBuilder();
+    Row edit = regions.getFirst();
+    for (Row r : regions) {
+      String region = r.str("name");
+      if (region.equals(p.q.get("id"))) edit = r;
+      b.append(tr(h(region), rp(r.num("isb")), link("isb&id=" + url(region), "Ubah ISB")));
+    }
+    String form =
+        p.form("isb", false)
+            + hidden("region", edit.str("name"))
+            + "<p><b>"
+            + h(edit.str("name"))
+            + "</b></p>"
+            + field(
+                "ISB per porsi (Rp)", input("isb", edit.str("isb"), "number", "min='1' required"))
+            + reason()
+            + button("Simpan ISB")
+            + "</form>";
+    return title(
+            "ISB daerah", "Tetapkan biaya acuan per porsi untuk transaksi baru di setiap daerah.")
+        + "<div class='columns'><div>"
+        + paper(
+            "Indeks Standar Biaya", table("Kabupaten / kota|ISB per porsi|Tindakan", b.toString()))
+        + "</div><div>"
+        + paper("Ubah ISB", form)
+        + "</div></div>";
+  }
 }
