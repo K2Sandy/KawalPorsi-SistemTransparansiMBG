@@ -212,4 +212,79 @@ final class Admin {
         + paper("Ubah ISB", form)
         + "</div></div>";
   }
+
+  String users() throws SQLException {
+    var b = new StringBuilder();
+    for (Row r :
+        rows(
+            p.c,
+            "select a.id,a.name,a.role,a.active,a.regions,k.name kitchen_name from account a left"
+                + " join kitchen k on k.id=a.kitchen order by a.name")) {
+      if (!(r.str("name") + " " + r.str("id"))
+          .toLowerCase(ID)
+          .contains(p.q.get("search").toLowerCase(ID))) continue;
+      boolean active = r.yes("active");
+      String action =
+          r.str("id").equals(p.u.str("id"))
+              ? "Akun Anda"
+              : "<details><summary>Ubah status</summary>"
+                  + p.form("toggle", false)
+                  + hidden("id", r.str("id"))
+                  + hidden("active", String.valueOf(!active))
+                  + reason()
+                  + button(active ? "Nonaktifkan" : "Aktifkan")
+                  + "</form></details>";
+      b.append(
+          tr(
+              h(r.str("name")) + "<small>" + h(r.str("id")) + "</small>",
+              roleName(r.str("role")),
+              h(
+                  r.str("role").equals("ADMIN")
+                      ? "Provinsi Aceh"
+                      : r.str("kitchen_name") + r.str("regions")),
+              active ? "Aktif" : "Nonaktif",
+              action));
+    }
+    String form =
+        p.form("createUser", false)
+            + field("Nama pengguna", input("name", "", "text", "required maxlength='120'"))
+            + field("Kode pengguna / NIP", input("account", "", "text", "required maxlength='80'"))
+            + field(
+                "Peran",
+                "<select name='role'>"
+                    + option("PETUGAS", "Petugas Dapur", "")
+                    + option("AUDITOR", "Auditor", "")
+                    + option("ADMIN", "Admin", "")
+                    + "</select>")
+            + field(
+                "Cakupan petugas dapur",
+                "<select name='kitchen'>"
+                    + p.opts("select id,name from kitchen order by name", "")
+                    + "</select>")
+            + field(
+                "Wilayah auditor",
+                "<select name='region'>"
+                    + p.opts("select name id,name from region order by name", "")
+                    + "</select>")
+            + field(
+                "Kata sandi awal",
+                input(
+                    "pass",
+                    "",
+                    "password",
+                    "required minlength='10' maxlength='70' autocomplete='new-password'"))
+            + reason()
+            + button("Buat akun")
+            + "</form>";
+    return title(
+            "Pengguna & dapur",
+            "Atur siapa yang bisa masuk dan apa yang boleh dilakukan tiap peran.")
+        + paper(
+            "Daftar pengguna",
+            p.filter("users", "Cari nama atau kode pengguna")
+                + table("Pengguna|Peran|Cakupan|Status|Tindakan", b.toString()))
+        + paper(
+            "Tambah pengguna",
+            "<details><summary>Buat akun dan tentukan cakupan</summary>" + form + "</details>");
+  }
 }
