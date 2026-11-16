@@ -23,4 +23,18 @@
   }
   document.addEventListener('input', calculate);
   document.addEventListener('change', calculate);
+  document.addEventListener('click', e=>{
+    const btn=e.target.closest('button');
+    if(!btn)return;
+    if(btn.hasAttribute('data-password')){
+      const input=btn.parentNode.querySelector('input');input.type=input.type==='password'?'text':'password';btn.textContent=input.type==='password'?'Tampilkan':'Sembunyikan';
+    }else if(btn.hasAttribute('data-add')){
+      const rows=document.querySelector('#lines');if(rows.children.length<40)rows.append(document.querySelector('#line-template').content.cloneNode(true));calculate();
+    }else if(btn.hasAttribute('data-remove')){
+      const row=btn.closest('.line');if(row.parentNode.children.length>1)row.remove();else row.querySelectorAll('input,select').forEach(field=>field.value='');calculate();
+    }else if(btn.hasAttribute('data-back'))history.back();
+  });
+  // Recalculate the summary when Flow attaches a new view.
+  new MutationObserver(list=>{if(list.some(m=>[...m.addedNodes].some(n=>n.nodeType===1&&(n.matches('.entry')||n.querySelector('.entry')))))calculate();}).observe(document.documentElement,{childList:true,subtree:true});
+  calculate();
 })();
