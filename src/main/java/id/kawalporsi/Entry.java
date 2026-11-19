@@ -95,11 +95,17 @@ final class Entry {
                         "file",
                         "multiple accept='image/jpeg,image/png,application/pdf'"))
                 + (!current.isEmpty() ? attachments(p.c, current.getFirst().str("id")) : ""));
+    double tolerance = setting.dec("tolerance").doubleValue();
+    double gaugeStart = setting.yes("low_flag") ? 50 - 2 * tolerance : 50;
     String summary =
         paper(
             "Ringkasan otomatis",
             "<small>Biaya bahan per porsi</small><h2 class='big' id='cost'>—</h2><div"
-                + " class='gauge'><i style='left:40%;width:20%'></i><b id='needle'></b></div><p>ISB"
+                + " class='gauge'><i style='left:"
+                + gaugeStart
+                + "%;width:"
+                + (50 + 2 * tolerance - gaugeStart)
+                + "%'></i><b id='needle'></b></div><p>ISB"
                 + " daerah <b>"
                 + rp(isb)
                 + "</b></p><div class='notice' id='evaluation'>Isi rincian belanja.</div><p>Total"
