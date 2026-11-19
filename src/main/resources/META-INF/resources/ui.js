@@ -6,20 +6,23 @@
   function calculate(){
     const area=document.querySelector('.entry');
     if(!area)return;
-    let valid=true,total=0;
-    area.querySelectorAll('#lines .line').forEach(row=>{
+    const rows=area.querySelectorAll('#lines .line');
+    let valid=rows.length>0,total=0;
+    rows.forEach(row=>{
       const choice=row.querySelector('select').selectedOptions[0];
-      const qty=Number(row.querySelector('[name=qty]').value), cost=Number(row.querySelector('[name=amount]').value);
-      const complete=choice?.value && qty>0 && cost>0;
+      const qtyField=row.querySelector('[name=qty]'), costField=row.querySelector('[name=amount]');
+      const qty=Number(qtyField.value), cost=Number(costField.value);
+      const complete=choice?.value && qtyField.validity.valid && costField.validity.valid;
       if(complete) total+=cost; else valid=false;
       row.querySelector('[data-reference]').textContent=choice?.value ? choice.dataset.kind+' · Acuan '+money(choice.dataset.price)+'/kg'+(complete?' · Aktual '+money(cost/qty)+'/kg':''):'';
     });
     const portions=Number(area.querySelector('[name=portions]').value), base=Number(area.dataset.isb);
+    const complete=valid && Number.isInteger(portions) && portions>=1 && portions<=1000000;
     const value=total/portions,delta=(value/base-1)*100;
-    area.querySelector('#cost').textContent=portions && total?money(value):'—';
+    area.querySelector('#cost').textContent=complete?money(value):'—';
     area.querySelector('#total').textContent=money(total);
-    area.querySelector('#evaluation').textContent=valid&&portions?'Deviasi biaya per porsi '+delta.toLocaleString('id-ID',{maximumFractionDigits:2})+'% · Ambang ±'+Number(area.dataset.threshold)+'%':'Lengkapi baris bahan dan jumlah porsi.';
-    area.querySelector('#needle').style.left=(Number.isFinite(delta)?Math.max(0,Math.min(100,50+2*delta)):50)+'%';
+    area.querySelector('#evaluation').textContent=complete?'Deviasi biaya per porsi '+delta.toLocaleString('id-ID',{maximumFractionDigits:2})+'% · Ambang ±'+Number(area.dataset.threshold)+'%':'Lengkapi baris bahan dan jumlah porsi yang valid.';
+    area.querySelector('#needle').style.left=(complete?Math.max(0,Math.min(100,50+2*delta)):50)+'%';
   }
   document.addEventListener('input', calculate);
   document.addEventListener('change', calculate);
