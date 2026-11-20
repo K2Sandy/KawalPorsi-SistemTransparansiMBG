@@ -210,9 +210,14 @@ final class Service {
                           + " z.id=? for update",
                       p.get("id"));
               if (!scope(u, r)) throw new SecurityException("Di luar wilayah pengawasan.");
-              update(c, "update citizen set state='DITINJAU' where id=?", p.get("id"));
-              Audit.log(c, null, u.str("name"), "Laporan warga ditinjau", p.get("id"));
-              dest = "reports";
+              if (r.str("state").equals("BARU")) {
+                update(c, "update citizen set state='DITINJAU' where id=?", r.str("id"));
+                Audit.log(c, null, u.str("name"), "Laporan warga ditinjau", r.str("id"));
+                session.message = "Laporan ditandai sudah ditinjau.";
+              } else {
+                session.message = "Laporan sudah ditinjau.";
+              }
+              return "reports";
             }
             default -> {
               require(u, "ADMIN");
