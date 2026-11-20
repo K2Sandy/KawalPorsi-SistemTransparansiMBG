@@ -28,18 +28,18 @@ final class Entry {
           + linkBtn(details(draft), "Buka transaksi");
     List<Row> lines =
         rows(p.c, "select * from item where purchase=? order by seq", draft.str("id"));
-    if (lines.isEmpty() && p.q.get("copy").equals("1")) {
-      var last =
-          rows(
-              p.c,
-              "select * from purchase where kitchen=? and day_date<? order by day_date desc limit"
-                  + " 1",
-              kitchen,
-              LocalDate.now());
-      if (!last.isEmpty()) {
-        draft = last.getFirst();
-        lines = rows(p.c, "select * from item where purchase=? order by seq", draft.str("id"));
-      }
+    var last =
+        current.isEmpty()
+            ? rows(
+                p.c,
+                "select * from purchase where kitchen=? and day_date<? and state<>'DRAFT'"
+                    + " order by day_date desc limit 1",
+                kitchen,
+                LocalDate.now())
+            : List.<Row>of();
+    if (!last.isEmpty() && p.q.get("copy").equals("1")) {
+      draft = last.getFirst();
+      lines = rows(p.c, "select * from item where purchase=? order by seq", draft.str("id"));
     }
     var foods = rows(p.c, "select * from food order by name");
     StringBuilder entries = new StringBuilder();
@@ -77,8 +77,8 @@ final class Entry {
     String items =
         paper(
             "②  Rincian belanja bahan",
-            "<p>Satu baris untuk tiap bahan. "
-                + link("entry&copy=1", "Salin dari catatan terakhir")
+            "<p>Satu baris untuk tiap bahan."
+                + (last.isEmpty() ? "" : " " + link("entry&copy=1", "Salin dari catatan terakhir"))
                 + "</p><div id='lines'>"
                 + entries
                 + "</div><template id='line-template'>"
