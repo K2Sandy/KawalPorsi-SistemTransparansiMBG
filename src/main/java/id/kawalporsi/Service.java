@@ -237,7 +237,16 @@ final class Service {
         String strat = p.get("strategy");
         if (!List.of("PORTION", "UNIT").contains(strat))
           throw new IllegalArgumentException("Pilih strategi.");
-        long threshold = p.positive("tolerance", 20);
+        BigDecimal threshold;
+        try {
+          threshold = new BigDecimal(p.get("tolerance")).stripTrailingZeros();
+          if (threshold.scale() > 2
+              || threshold.compareTo(BigDecimal.ONE) < 0
+              || threshold.compareTo(BigDecimal.valueOf(20)) > 0)
+            throw new NumberFormatException();
+        } catch (NumberFormatException ex) {
+          throw new IllegalArgumentException("Isi ambang 1–20% dengan maksimal dua angka desimal.");
+        }
         update(
             c,
             "update rules set tolerance=?,strategy=?,secondary=?,low_flag=?,notify=? where id=1",
@@ -247,7 +256,7 @@ final class Service {
             p.on("low"),
             p.on("notify"));
         result = "rules";
-        description = "Aturan audit: " + strat + ", " + threshold + "%";
+        description = "Aturan audit: " + strat + ", " + threshold.toPlainString() + "%";
       }
       case "price" -> {
         String id = p.get("id"), name = p.required("name", 120), kind = p.get("kind");

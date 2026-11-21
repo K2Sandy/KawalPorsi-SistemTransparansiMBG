@@ -111,7 +111,7 @@ final class Admin {
                             "tolerance",
                             r.dec("tolerance").stripTrailingZeros().toPlainString(),
                             "number",
-                            "min='1' max='20' required"))
+                            "min='1' max='20' step='0.01' required"))
                     + check("low", "Tandai juga biaya di bawah acuan", r.yes("low_flag")))
             + paper(
                 "③  Saat transaksi ditandai",
