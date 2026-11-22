@@ -128,18 +128,24 @@ final class PublicPages {
     return n == 0 ? 0 : total / (double) n;
   }
 
-  List<Row> period(List<Row> all) {
-    String m = p.q.get("month").isEmpty() ? YearMonth.now().toString() : p.q.get("month");
+  List<Row> period(List<Row> all, YearMonth month) {
+    String region = p.q.get("region");
     return all.stream()
         .filter(
             r ->
-                r.str("day_date").startsWith(m)
-                    && (p.q.get("region").isEmpty() || p.q.get("region").equals(r.str("region"))))
+                YearMonth.from(LocalDate.parse(r.str("day_date"))).equals(month)
+                    && (region.isEmpty() || region.equals(r.str("region"))))
         .toList();
   }
 
   String dashboard() throws SQLException {
-    List<Row> set = period(data()), approved = releasedOnly(set);
+    YearMonth month;
+    try {
+      month = p.q.get("month").isEmpty() ? YearMonth.now() : YearMonth.parse(p.q.get("month"));
+    } catch (java.time.format.DateTimeParseException ex) {
+      throw new IllegalArgumentException("Pilih periode bulan yang valid.");
+    }
+    List<Row> set = period(data(), month), approved = releasedOnly(set);
     String form =
         "<form class='filters' method='get'>"
             + hidden("v", "public")
@@ -153,7 +159,7 @@ final class PublicPages {
                 "Periode",
                 input(
                     "month",
-                    p.q.get("month").isEmpty() ? YearMonth.now().toString() : p.q.get("month"),
+                    month.toString(),
                     "month",
                     "required"))
             + button("Terapkan")
