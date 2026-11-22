@@ -8,6 +8,9 @@ import java.time.LocalDate;
 import java.util.*;
 
 public final class Audit {
+  static final int MAX_RECEIPTS = 12;
+  static final int MAX_REPLY_RECEIPTS = 3;
+
   record Line(String food, BigDecimal qty, long amount, long reference) {}
 
   record Receipt(String name, String mime, byte[] data) {}
@@ -164,9 +167,7 @@ public final class Audit {
           l.amount(),
           l.reference());
     }
-    if (one(c, "select count(*) n from evidence where purchase=?", id).num("n") + files.size() > 12)
-      throw new IllegalArgumentException("Maksimal 12 lampiran per transaksi.");
-    for (var f : files) attach(c, id, f);
+    attachAll(c, id, files);
     log(c, id, actor, draft ? "Draf disimpan" : "Belanja dikirim", menu);
     if (!draft) {
       if (state.equals("FLAGGED"))
@@ -177,13 +178,19 @@ public final class Audit {
     return id;
   }
 
-  static void attach(Connection c, String id, Receipt f) throws SQLException {
-    update(
-        c,
-        "insert into evidence(purchase,name,mime,contents) values(?,?,?,?)",
-        id,
-        f.name(),
-        f.mime(),
-        f.data());
+  static void attachAll(Connection c, String id, List<Receipt> files) throws SQLException {
+    if (files.isEmpty()) return;
+    long count = one(c, "select count(*) n from evidence where purchase=?", id).num("n");
+    if (count + files.size() > MAX_RECEIPTS)
+      throw new IllegalArgumentException("Maksimal " + MAX_RECEIPTS + " lampiran per transaksi.");
+    for (Receipt f : files) {
+      update(
+          c,
+          "insert into evidence(purchase,name,mime,contents) values(?,?,?,?)",
+          id,
+          f.name(),
+          f.mime(),
+          f.data());
+    }
   }
 }

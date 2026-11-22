@@ -248,7 +248,7 @@ final class Staff {
                   + field(
                       "Penjelasan", "<textarea name='note' maxlength='1000' required></textarea>")
                   + field(
-                      "Lampiran bukti",
+                      "Lampiran bukti (maks. 3 per klarifikasi, 12 per transaksi)",
                       input(
                           "receipt",
                           "",

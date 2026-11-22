@@ -182,9 +182,9 @@ final class Service {
                 if (!state.equals("WAITING"))
                   throw new IllegalArgumentException("Tidak ada permintaan klarifikasi terbuka.");
                 note = p.required("cause", 70) + " — " + note;
-                if (p.files.size() > 3)
-                  throw new IllegalArgumentException("Maksimal tiga lampiran.");
-                for (var f : p.files) Audit.attach(c, id, f);
+                if (p.files.size() > Audit.MAX_REPLY_RECEIPTS)
+                  throw new IllegalArgumentException("Maksimal tiga lampiran per klarifikasi.");
+                Audit.attachAll(c, id, p.files);
               } else if (!List.of("FLAGGED", "REVIEW", "WAITING").contains(state)
                   || !List.of("WAITING", "CLEARED", "REJECTED").contains(next)
                   || next.equals(state))
