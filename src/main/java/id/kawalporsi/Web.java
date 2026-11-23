@@ -200,7 +200,11 @@ final class Web {
         byte[] data = raw.substring(headerEnd + 4, end).getBytes(StandardCharsets.ISO_8859_1);
         if (name.find()) {
           if (file.find()) {
-            if (!file.group(1).isEmpty()) p.files.add(receipt(file.group(1), data));
+            if (!file.group(1).isEmpty()) {
+              String filename =
+                  new String(file.group(1).getBytes(StandardCharsets.ISO_8859_1), StandardCharsets.UTF_8);
+              p.files.add(receipt(filename, data));
+            }
           } else p.add(name.group(1), new String(data, StandardCharsets.UTF_8));
         }
         start = end + 2 + delim.length();
