@@ -55,7 +55,7 @@ mvn clean package
 java -jar target/kawalporsi-1.0.0.jar
 ```
 
-Build pertama mengunduh dependensi Maven. `mvn test` menjalankan pengujian batas audit, harga satuan, penguncian transaksi, histori acuan dan penyimpanan H2. Untuk menjalankan melalui IntelliJ sesudah build, gunakan JAR produksi atau konfigurasi Maven di atas.
+Build pertama mengunduh dependensi Maven dan membuat folder `target/` di komputer Anda. `mvn test` menjalankan pengujian batas audit, harga satuan, penguncian transaksi, histori acuan, penyimpanan H2, dan nama lampiran. Untuk menjalankan melalui IntelliJ sesudah build, gunakan JAR produksi atau konfigurasi Maven di atas.
 
 | Bagian | Lokasi dalam proyek |
 |---|---|
