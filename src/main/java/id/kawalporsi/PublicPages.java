@@ -181,6 +181,7 @@ final class PublicPages {
                           / regionData.stream().mapToLong(r -> r.num("portions")).sum(),
                       regionData.getFirst().dec("tolerance").doubleValue())));
     }
+    long cleared = approved.stream().filter(r -> r.str("state").equals("CLEARED")).count();
     long pending = set.stream().filter(r -> open(r.str("state"))).count();
     return title(
             "Transparansi belanja Dapur MBG",
@@ -209,18 +210,23 @@ final class PublicPages {
         + "</div><div>"
         + paper(
             "Status transaksi",
-            trSummary(approved.size(), pending, set.size() - approved.size() - pending)
+            trSummary(
+                    approved.size() - cleared, cleared, pending, set.size() - approved.size() - pending)
                 + link("method", "Pelajari metode penghitungan →"))
         + "</div></div>"
         + trend(approved)
         + directory();
   }
 
-  static String trSummary(long ok, long pending, long rejected) {
+  static String trSummary(long ok, long cleared, long pending, long rejected) {
     return "<p>"
         + badge("APPROVED")
         + " <b>"
         + ok
+        + "</b></p><p>"
+        + badge("CLEARED")
+        + " <b>"
+        + cleared
         + "</b></p><p>"
         + badge("PENDING")
         + " <b>"
